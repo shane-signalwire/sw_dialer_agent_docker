@@ -10,7 +10,12 @@ This standalone docker container allows configuration and customization of a Sig
 ## RUN VIA DOCKER
 ```console
 # Build the Docker image:
-docker build -t ai_dialer_agent  --build-arg "NGROK_AUTHTOKEN_ARG=<NGROK AUTH TOKEN>" --build-arg "TOKEN_ARG=<API TOKEN>" --build-arg "PROJECT_ARG=<SIGNALWIRE PROJECT ID>" --build-arg "AGENT_DEST_ARG=<AI AGENT DESTINATION NUMBER>" .
+docker build -t ai_dialer_agent \
+ --build-arg  "NGROK_AUTHTOKEN_ARG=<NGROK AUTH TOKEN>" \
+--build-arg "TOKEN_ARG=<API TOKEN>" \
+--build-arg "PROJECT_ARG=<SIGNALWIRE PROJECT ID>" \
+--build-arg "AGENT_DEST_ARG=<AI AGENT DESTINATION NUMBER>"  \
+.
 
 # Run the container
 docker run -p 8000:5000 ai_dialer_agent
