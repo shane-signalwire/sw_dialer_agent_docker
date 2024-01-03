@@ -3,17 +3,15 @@
 
 from signalwire.voice_response import *
 import sqlite3
-import re
-import logging
 from flask import Flask, request, render_template
 import ngrok
+import os
 
 listener = ngrok.forward(5000,authtoken_from_env=True)
+os.environ['NGROK_TUNNEL_ADDRESS'] = listener.url()
+ngrok_tunnel_url = os.environ['NGROK_TUNNEL_ADDRESS']
 
-global ngrok_tunnel_url
-ngrok_tunnel_url = listener.url()
-
-# TODO:  I need to do something with this
+# TODO:  I need to do something with this in the UI
 print (f"The NGROK TUNNEL URL is {ngrok_tunnel_url}")
 
 db = sqlite3.connect("/root/database.db")
@@ -47,350 +45,23 @@ cursor.execute(survey_user_table)
 db.commit()
 
 
+# Importing Sub-Route
+# Attempting to keep the code more neat and modular
+import ui
+import ai
+
 app = Flask(__name__)
 
-@app.route('/', methods=['GET'])
-def my_form():
-    return render_template('my-form.html')
+# User Interface Route(s)
+app.add_url_rule('/', view_func=ui.index, methods=['GET'])
+app.add_url_rule('/', view_func=ui.add_to_queue, methods=['POST'])
+app.add_url_rule('/logs', view_func=ui.logs, methods=['POST'])
 
-@app.route('/logs', methods=['POST'])
-def my_log_post():
-    response=""
-    db = sqlite3.connect("/app/storage/database.db")
-    cursor = db.cursor()
-
-    rows = cursor.execute(
-        "SELECT id, to_num, from_num, amd_result from dialto where amd_result is not null order by id desc limit 25"
-    ).fetchall()
-
-    response="    ID     |  Dialed Number  |  Calling Number |  AMD Result<br>+++++++++++++++++++++++++++++++++++++++<br>"
-    for i, d, c, a in rows:
-        response=response + str(i) + "  |  " + str(d) + "  |  " + str(c) + "  |  " + str(a) + "<br>"
-
-    return response
-
-@app.route('/', methods=['POST'])
-def my_form_post():
-    response = ""
-    from_num_ = request.form.get("fnum")
-
-    phone_num_regex = re.compile(r'^\+1\d{10}$')
-    good_num = phone_num_regex.search(from_num_)
-
-    if good_num is None:
-        response = "The from number is not valid"
-        return response
-
-
-    numbers = str.split(request.form['dest_list'])
-
-    # Put each number in the database for dialier pickup
-    for num in numbers:
-        db = sqlite3.connect("/root/database.db")
-        cursor = db.cursor()
-
-        to_num_ = num
-
-        phone_num_regex = re.compile(r'^\+1\d{10}$')
-        good_num = phone_num_regex.search(to_num_)
-
-        if good_num is not None:
-            cursor.execute(
-              "INSERT INTO dialto (to_num, from_num) VALUES (?, ?)",
-              (to_num_, from_num_,)
-            )
-
-            db.commit()
-            db.close()
-            response = response + to_num_ + " added to queue\n<br>"
-        else:
-            logging.info(f'{to_num_} is not a valid number')
-            response =  response + to_num_ + ": is not a valid number<br>"
-
-    return response
-
-
-## AI SURVEY AGENT
-@app.route('/ai', methods=['POST'])
-def main_ai_prompt():
-    swml_web_hook_base_url = nrgok_tunnel_url
-    swml_ai_prompt = '''Your name is SurveyBot.  Your job is to survey the caller with questions from a database.
-    
-    ### How to follow up on questions answered and protocols to follow                   
-        Stay on focus and on protocol.
-        You are not capable of troubleshooting or diagnosing problems.
-        Execute functions when appropriate
-    
-    ### Step 1
-        Determine if the caller already exists in the database.  Use the provided lookup_caller function using the callers phone number as an argument.
-        
-    ### Step 2
-        We need to gather some data about the caller so that we can record their answers.
-        
-    #### Step 2.1
-        Ask the caller for their first name
-    
-    #### Step 2.2
-        Ask the caller for their last name
-    
-    #### Step 2.3
-        Ask the caller for their age in years
-        
-    #### Step 2.4
-        Use the calling phone number as the callers phone number.  Use the provided create_user function to create the user in the database.
-        Do not tell the caller that a record was created in a database.
-    
-    ### Step 3
-        Ask the caller the first question when it is returned.
-        Continue to use the provided question_and_answer function to record each answer, and get the next question.  Send the question asked in the question argument, and the answer in the answer argument.
-        Stay on task and on protocol. Do not make up your own questions. 
-        Repeat this process until there are no questions remaining.
-    '''
-
-    swml = {}
-    swml['sections'] = {
-        'main': [{
-            'ai': {
-                'voice': 'en-US-Standard-A',
-                'params': {
-                    'confidence': 0.6,
-                    'barge_confidence': 0.1,
-                    'top_p': 0.3,
-                    'temperature': 1.0,
-                    'swaig_allow_swml': True,
-                    'conscience': True
-                },
-                'prompt': {
-                    'text': swml_ai_prompt
-                },
-                'SWAIG': {
-                    'functions': [
-                        {
-                            'function': 'lookup_caller',
-                            'purpose': 'lookup the caller in the database to see if they exist',
-                            'web_hook_url': f"{swml_web_hook_base_url}/lookup_caller",
-                            'argument': {
-                                'type': 'object',
-                                'properties': {
-                                    'phone_number': {
-                                        'type': 'string',
-                                        'description': 'the callers phone_number'
-                                    }
-                                }
-                            }
-                        },
-                        {
-                            'function': 'question_and_answer',
-                            'purpose': 'record the answer and get the next question for the survey',
-                            'web_hook_url': f"{swml_web_hook_base_url}/question_and_answer",
-                            'argument': {
-                                'type': 'object',
-                                'properties': {
-                                    'answer': {
-                                        'type': 'string',
-                                        'description': 'the callers answer to the question'
-                                    },
-                                    'question': {
-                                        'type': 'string',
-                                        'description': 'the question that was asked by SurveyBot'
-                                    }
-                                }
-                            }
-                        },
-                        {
-                            'function': 'create_user_record',
-                            'purpose': 'submit the payment for the caller',
-                            'web_hook_url': f"{swml_web_hook_base_url}/create_user",
-                            'argument': {
-                                'type': 'object',
-                                'properties': {
-                                    'first_name': {
-                                        'type': 'string',
-                                        'description': 'the callers fist name'
-                                    },
-                                    'last_name': {
-                                        'type': 'string',
-                                        'description': 'the callers last name'
-                                    },
-                                    'age': {
-                                        'type': 'string',
-                                        'description': 'the callers age'
-                                    },
-                                    'phone_number': {
-                                        'type': 'string',
-                                        'description': 'the callers phone_number'
-                                    }
-                                }
-                            }
-                        }
-                    ]
-                }
-            }
-        }]
-    }
-
-    return (swml)
-
-# SWAIG FUNCTION ENDPOINTS
-@app.route('/lookup_caller', methods=['POST'])
-def lookup_caller():
-    db = sqlite3.connect("/root/database.db")
-    cursor = db.cursor()
-
-    swml = {}
-
-    # Does this user already exist in the database
-    # Don't create a new user if they do
-    phone_number = request.json['argument']['parsed'][0]['phone_number']
-
-    rows = cursor.execute(
-        "SELECT id, first_name, last_name from user where phone_number = ? limit 1",
-        (phone_number,)
-    ).fetchall()
-
-    if len(rows) > 0:
-        for row in rows:
-            global user_id
-            user_id = row[0]
-            first_name = row[1]
-            last_name = row[2]
-
-            add_questions_to_user(user_id)       # Add any new questions to the caller's survey
-            question = get_a_question(user_id)   # Get the first/next question for the caller
-
-            if question != "0":
-                swml['response'] = f"The user already exists.  They callers name is {first_name} {last_name}.  The the first question is {question}"
-                print (f"SWML: {swml}")
-            else:
-                swml['response'] = f"The user, {first_name} {last_name} already exists and they have already answered all of the questions in the survey.  Let the caller know they have already answered all of the questions and disconnect the call."
-    else:
-        swml['response'] = "The user does not exist, start with Step 2"
-
-    db.close()
-    print (f"{swml}")
-    return swml
-
-@app.route('/create_user', methods=['POST'])
-def create_user_record():
-    db = sqlite3.connect("/root/database.db")
-    cursor = db.cursor()
-
-    swml = {}
-
-    first_name = request.json['argument']['parsed'][0]['first_name']
-    last_name = request.json['argument']['parsed'][0]['last_name']
-    age = request.json['argument']['parsed'][0]['age']
-    phone_number = request.json['argument']['parsed'][0]['phone_number']
-
-    cursor.execute(
-        "INSERT INTO user (first_name, last_name, age, phone_number) VALUES (?, ?, ?, ?)",
-        (first_name, last_name, age, phone_number,)
-    )
-    db.commit()
-
-    # Lets sneakily add the user_id as a global var for later inserts, so we don't have to look it up each time
-    rows = cursor.execute(
-        "SELECT id from user where phone_number = ? limit 1",
-        (phone_number,)
-    ).fetchall()
-    for row in rows:
-        global user_id
-        user_id = row[0]
-
-    add_questions_to_user(user_id)
-    question = get_a_question(user_id)
-
-    if question != "0":
-        swml['response'] = f"The first question is {question}"
-        print (f"SWML: {swml}")
-    else:
-        swml['response'] = f"There are no questions left.  Thank the caller and disconnect"
-        print (f"SWML: {swml}")
-
-    db.close()
-    return swml
-
-@app.route('/question_and_answer', methods=['POST'])
-def question_and_answer():
-    swml = {}
-    global question_id
-
-    # UNCOMMENT FOR DEBUG:
-    #print (request.json)
-
-    db = sqlite3.connect("/root/database.db")
-    cursor = db.cursor()
-
-    answer = request.json['argument']['parsed'][0]['answer']
-
-    cursor.execute(
-        "UPDATE survey_answers SET answer = ? WHERE user_id = ? AND id = ?",
-        (answer, user_id, question_id)
-    )
-    db.commit()
-
-    rows = cursor.execute(
-        "SELECT question, id from survey_answers where user_id = ? and answer is NULL order by id limit 1",
-        (user_id,)
-    ).fetchall()
-
-    if len(rows) > 0:
-        for row in rows:
-            question = row[0]
-            question_id = row[1]
-            swml['response'] = f"Success.  The answer has been recorded.  the next question is {question}"
-            print(f"{swml}")
-    else:
-        swml['response'] = f"Success.  The answer has been recorded.  There are no more questions in the survey.  Please hang up the call"
-        print (f"{swml}")
-
-    db.close()
-    return swml
-
-
-def get_a_question(user_id):
-    global question_id
-    response = ""
-
-    db = sqlite3.connect("/root/database.db")
-    cursor = db.cursor()
-
-    rows = cursor.execute(
-        "SELECT question, id from survey_answers where user_id = ? and answer is NULL order by id limit 1",
-        (user_id,)
-    ).fetchall()
-
-    if len(rows) > 0:
-        for row in rows:
-            question = row[0]
-            question_id = row[1]
-            response = question
-    else:
-        response = "0"
-
-    db.close()
-    return (response)
-
-
-def add_questions_to_user(user_id):
-    db = sqlite3.connect("/root/database.db")
-    cursor = db.cursor()
-
-    rows = cursor.execute(
-        "select id, question from survey_questions"
-    ).fetchall()
-    for row in rows:
-        survey_question_id = row[0]
-        survey_question = row[1]
-        cursor.execute(
-            "INSERT INTO survey_answers (user_id, question_id, question) SELECT ?, ?, ? WHERE NOT EXISTS (SELECT id from survey_answers where user_id = ? and question_id = ?)",
-            (user_id, survey_question_id, survey_question, user_id, survey_question_id,)
-        )
-
-    db.commit()
-    db.close()
-    return
-
+# AI Agent
+app.add_url_rule('/ai', view_func=ai.ai_prompt, methods=['POST'])
+app.add_url_rule('/lookup_caller', view_func=ai.lookup_caller, methods=['POST'])
+app.add_url_rule('/create_user', view_func=ai.create_user_record, methods=['POST'])
+app.add_url_rule('/question_and_answer', view_func=ai.question_and_answer, methods=['POST'])
 
 
 if __name__ == '__main__':

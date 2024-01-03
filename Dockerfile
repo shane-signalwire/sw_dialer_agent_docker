@@ -22,6 +22,8 @@ RUN mkdir -p /root/templates
 # Copy Application files
 COPY app.py /root/app.py
 COPY amd.py /root/amd.py
+COPY ui.py /root/ui.py
+COPY ai.py /root/ai.py
 COPY requirements.txt /root/requirements.txt
 COPY templates /root/templates
 COPY start_services.sh /root/start_services.sh
@@ -29,6 +31,8 @@ COPY start_services.sh /root/start_services.sh
 # Make application Executable
 RUN chmod +x /root/app.py
 RUN chmod +x /root/amd.py
+RUN chmod +x /root/ui.py
+RUN chmod +x /root/ai.py
 RUN chmod +x /root/start_services.sh
 
 
