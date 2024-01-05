@@ -26,6 +26,7 @@ COPY ui.py /root/ui.py
 COPY ai.py /root/ai.py
 COPY requirements.txt /root/requirements.txt
 COPY templates /root/templates
+COPY static /root/static
 COPY start_services.sh /root/start_services.sh
 
 # Make application Executable

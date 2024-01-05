@@ -22,6 +22,8 @@ class CustomConsumer(Consumer):
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         to_num TEXT NOT NULL,
         from_num TEXT NOT NULL,
+        first_name TEXT NOT NULL,
+        last_name TEXT NOT NULL,
         amd_result TEXT
         );"""
 
@@ -38,8 +40,8 @@ class CustomConsumer(Consumer):
 
         # TODO: Turn off logging to save disk/memory space
         if len(results) == 0:
-            logging.info ('nothing to do')
-            time.sleep(3)
+            #logging.info ('nothing to do')
+            time.sleep(5)
 
         else:
             for i, t, f in results:

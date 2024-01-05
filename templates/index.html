@@ -1,0 +1,44 @@
+<html>
+<head>
+    <title>PollSter Bot - SignalWire AI Agent</title>
+    <link
+        rel="shortcut icon"
+        href="{{ url_for('static', filename='sw.jpeg') }}"
+    />
+    <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}" />
+</head>
+
+
+<body>
+<img src="{{ url_for('static', filename='sw.jpeg') }}" class="icon" />
+<h3>SIGNALWIRE POLL DIALER</h3>
+
+<div class="buttons">
+    <form  action="/" method="POST">
+        <input type="submit" name="configure_dialer" value="Configure Dialer">
+    </form>
+    <form  action="/" method="POST">
+        <input type="submit" name="poll_participant" value="Poll Participants">
+    </form>
+    <form  action="/" method="POST">
+        <input type="submit" name="poll_questions" value="Poll Questions">
+    </form>
+    <form  action="/logs" method="POST">
+        <input type="submit" name="logs" value="View Call Logs">
+    </form>
+    <form  action="/" method="POST">
+        <input type="submit" name="results" value="View Poll Results">
+    </form>
+    <form action="/" method="POST">
+        <input type="submit" name="dial" value="START POLL">
+    </form>
+
+</div>
+
+
+<div class="result" style="display: inline; vertical-align: top; width: 100%;">
+    {% if result %}{{ result|safe }}{% endif %}
+</div>
+
+
+</body>

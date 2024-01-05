@@ -6,12 +6,14 @@ import sqlite3
 from flask import Flask, request, render_template
 import ngrok
 import os
+import logging
 
 listener = ngrok.forward(5000,authtoken_from_env=True)
 os.environ['NGROK_TUNNEL_ADDRESS'] = listener.url()
 ngrok_tunnel_url = os.environ['NGROK_TUNNEL_ADDRESS']
 
 # TODO:  I need to do something with this in the UI
+# Need to make a button to auto update the agent number
 print (f"The NGROK TUNNEL URL is {ngrok_tunnel_url}")
 
 db = sqlite3.connect("/root/database.db")
@@ -54,15 +56,13 @@ app = Flask(__name__)
 
 # User Interface Route(s)
 app.add_url_rule('/', view_func=ui.index, methods=['GET'])
-app.add_url_rule('/', view_func=ui.add_to_queue, methods=['POST'])
+app.add_url_rule('/', view_func=ui.post_index, methods=['POST'])
 app.add_url_rule('/logs', view_func=ui.logs, methods=['POST'])
 
 # AI Agent
 app.add_url_rule('/ai', view_func=ai.ai_prompt, methods=['POST'])
 app.add_url_rule('/lookup_caller', view_func=ai.lookup_caller, methods=['POST'])
-app.add_url_rule('/create_user', view_func=ai.create_user_record, methods=['POST'])
 app.add_url_rule('/question_and_answer', view_func=ai.question_and_answer, methods=['POST'])
-
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0')
