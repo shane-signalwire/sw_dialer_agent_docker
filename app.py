@@ -41,9 +41,20 @@ survey_user_table = """ CREATE TABLE if not exists user (
     phone_number TEXT NOT NULL
     );"""
 
+# Create the dialto table if it doesn't exist
+dialto_table = """ CREATE TABLE if not exists dialto (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    to_num TEXT NOT NULL,
+    from_num TEXT NOT NULL,
+    first_name TEXT NOT NULL,
+    last_name TEXT NOT NULL,
+    amd_result TEXT
+    );"""
+
 cursor.execute(survey_questions_table)
 cursor.execute(survey_answers_table)
 cursor.execute(survey_user_table)
+cursor.execute(dialto_table)
 db.commit()
 
 

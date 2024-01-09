@@ -23,21 +23,27 @@
     <form  action="/" method="POST">
         <input type="submit" name="poll_questions" value="Poll Questions">
     </form>
+    <form action="/" method="POST">
+        <input type="submit" name="start_dialer" value="START POLL">
+    </form>
+    <br><br>
+    <div class="result" style="display: inline; vertical-align: top; width: 100%;">
+        {% if result %}{{ result|safe }}{% endif %}
+    </div>
+    <br><br>
     <form  action="/logs" method="POST">
         <input type="submit" name="logs" value="View Call Logs">
     </form>
     <form  action="/" method="POST">
         <input type="submit" name="results" value="View Poll Results">
     </form>
-    <form action="/" method="POST">
-        <input type="submit" name="dial" value="START POLL">
-    </form>
+
 
 </div>
 
 
-<div class="result" style="display: inline; vertical-align: top; width: 100%;">
-    {% if result %}{{ result|safe }}{% endif %}
+<div class="log_result" style="display: inline; vertical-align: top; width: 100%;">
+    {% if log_result %}{{ log_result|safe }}{% endif %}
 </div>
 
 

@@ -17,19 +17,6 @@ class CustomConsumer(Consumer):
     db = sqlite3.connect("/root/database.db")
     cursor = db.cursor()
 
-    # Create the dialto table if it doesn't exist
-    dialto_table = """ CREATE TABLE if not exists dialto (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        to_num TEXT NOT NULL,
-        from_num TEXT NOT NULL,
-        first_name TEXT NOT NULL,
-        last_name TEXT NOT NULL,
-        amd_result TEXT
-        );"""
-
-    cursor.execute(dialto_table)
-    db.commit()
-
     while True:
         to_num = ""
         from_num = ""
@@ -76,7 +63,7 @@ class CustomConsumer(Consumer):
                 logging.info(f'{to_num}: {amd.result}')
                 logging.info(f'{to_num}: Playing Message to user')
                 await dial_result.call.play_tts(text='Hello, Please stay on the line to complete this important political poll')
-                agent_dest = self.project = os.environ.get('AGENT_DEST', None)
+                agent_dest = self.project = os.environ.get('SW_CALLER_ID', None)
                 devices = [
                   { 'to_number': agent_dest, 'timeout': 15 }
                 ]

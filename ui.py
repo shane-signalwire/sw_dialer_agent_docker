@@ -22,7 +22,7 @@ def logs():
     for i, d, c, a in rows:
         response=response + str(i) + "  |  " + str(d) + "  |  " + str(c) + "  |  " + str(a) + "<br>"
 
-    return render_template('index.html', result=response)
+    return render_template('index.html', log_result=response)
 
 def post_index():
     response = ""
@@ -64,6 +64,12 @@ def post_index():
             response =  f"<center>{first_name_} {last_name_} has been added to the poll calling queue.</center>"
 
 
+    elif request.form.get("start_dialer"):
+        os.system("/root/amd.py &")
+
+        response = f"<center>Dialer Started!</center>"
+
+
     elif request.form.get("add_question"):
         question_ = request.form.get("question_textarea")
         db = sqlite3.connect("/root/database.db")
@@ -79,20 +85,23 @@ def post_index():
       
         response = f"<center> {question_} has been added to the poll</center>"
 
-    elif request.form.get("conf_callerid"):
-        os.environ['SW_CALLER_ID'] = request.form.get("fnum")
+    elif request.form.get("conf_dialer"):
 
-        # TODO:  Add Project, and Token here as well.  Make all configuration from the UI, **NOT** the build
+        # SET THE ENVIRONMENT
+        os.environ['SW_CALLER_ID'] = request.form.get("fnum")
+        os.environ['PROJECT'] = request.form.get("swproject")
+        os.environ['TOKEN'] = request.form.get("swtoken")
+        os.environ['SPACE'] = request.form.get("swspace")
 
         # TODO:  Move these into their own functions, instead of cluttering the UI code.
-        phone_number = request.form.get("fnum")
-        # URL encode phone number
-        phone_number = phone_number.replace('+','%2b')
+        # TODO:  Phone number will require +1, this should be validated before calls are made.
+        phone_number = os.environ['SW_CALLER_ID'].replace('+', '%2b') # Take the phone number and URL encode.
 
-        signalwire_space = request.form.get("swspace")
+        signalwire_space = os.environ['SPACE']
         project_id = os.environ['PROJECT']
         rest_api_token = os.environ['TOKEN']
 
+        # Generate the basic auth hash.
         auth = str(project_id + ":" + rest_api_token)
         auth_bytes = auth.encode('ascii')
         base64_auth_bytes = base64.b64encode(auth_bytes)
@@ -133,9 +142,13 @@ def post_index():
     elif request.form.get("configure_dialer"):
         response= '''
 <form action="/" method="POST">
-<center>Signalwire Space:  <input type="text" id="sw_space" name="swspace" size="25"><br>
-Caller ID Number:  <input type="text" id="from_number" name="fnum" size="25"></center><br><br>
-<input type="submit" name="conf_callerid" value="Submit" size="25">'''
+<center>
+Signalwire Space:    <input type="text" id="sw_space" name="swspace" size="25"><br>
+SignalWire Project ID:  <input type="text" id="sw_project" name="swproject" size="25"><br>
+SignalWire API Token:   <input type="text" id="sw_token" name="swtoken" size="25"><br>
+Caller ID Number:    <input type="text" id="from_number" name="fnum" size="25"></center><br><br>
+<input type="submit" name="conf_dialer" value="Submit">
+</form>'''
 
     elif request.form.get("poll_participant"):
         response = '''
