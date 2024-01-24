@@ -25,4 +25,4 @@ urllib3==2.1.0
 Werkzeug==3.0.1
 yarl==1.9.4
 Flask-SocketIO==5.3.6
-pyngrok=7.0.5
+pyngrok==7.0.5
