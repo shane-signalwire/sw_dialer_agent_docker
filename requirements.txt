@@ -24,3 +24,4 @@ twilio==6.54.0
 urllib3==2.1.0
 Werkzeug==3.0.1
 yarl==1.9.4
+Flask-SocketIO==5.3.6
