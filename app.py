@@ -4,17 +4,21 @@
 from signalwire.voice_response import *
 import sqlite3
 from flask import Flask, request, render_template
-import ngrok
+#import ngrok
 import os
 import logging
+from flask_socketio import SocketIO,emit
 
-listener = ngrok.forward(5000,authtoken_from_env=True)
-os.environ['NGROK_TUNNEL_ADDRESS'] = listener.url()
+
+from pyngrok import ngrok
+public_url = ngrok.connect(5000)
+print(" * ngrok tunnel \"{}\" -> \"http://127.0.0.1:5000\"".format(public_url))
+os.environ['NGROK_TUNNEL_ADDRESS'] = public_url.public_url
 ngrok_tunnel_url = os.environ['NGROK_TUNNEL_ADDRESS']
-
+print(ngrok_tunnel_url)
 # TODO:  I need to do something with this in the UI
 # Need to make a button to auto update the agent number
-print (f"The NGROK TUNNEL URL is {ngrok_tunnel_url}")
+#print (f"The NGROK TUNNEL URL is {ngrok_tunnel_url}")
 
 db = sqlite3.connect("/root/database.db")
 cursor = db.cursor()
@@ -64,16 +68,35 @@ import ui
 import ai
 
 app = Flask(__name__)
-
+socketio = SocketIO(app)
 # User Interface Route(s)
 app.add_url_rule('/', view_func=ui.index, methods=['GET'])
 app.add_url_rule('/', view_func=ui.post_index, methods=['POST'])
 app.add_url_rule('/logs', view_func=ui.logs, methods=['POST'])
-
+app.add_url_rule('/results', view_func=ui.results, methods=['GET'])
+app.add_url_rule('/initial_results', view_func=ui.initial_results, methods=['GET','POST'])
+app.add_url_rule('/get_survey_results', view_func=ui.get_survey_results, methods=['GET','POST'])
 # AI Agent
 app.add_url_rule('/ai', view_func=ai.ai_prompt, methods=['POST'])
 app.add_url_rule('/lookup_caller', view_func=ai.lookup_caller, methods=['POST'])
-app.add_url_rule('/question_and_answer', view_func=ai.question_and_answer, methods=['POST'])
+app.add_url_rule('/question_and_answer', view_func=ai.question_and_answer, methods=['POST'],defaults={'socketio': socketio})
+app.add_url_rule('/test_ws', view_func=ai.test_ws, methods=['GET'],defaults={'socketio': socketio})
+
+@socketio.on('connect')
+def handle_connect():
+    print('Client connected')
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    print('Client disconnected')
+
+
+
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0')
+    #app.run(host='0.0.0.0')
+    #from pyngrok import ngrok
+    #public_url = ngrok.connect(5000)
+    #print(" * ngrok tunnel \"{}\" -> \"http://127.0.0.1:5000\"".format(public_url))
+    #os.environ['NGROK_TUNNEL_ADDRESS'] = public_url
+    socketio.run(app, host="0.0.0.0", port=5000,allow_unsafe_werkzeug=True)
