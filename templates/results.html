@@ -1,0 +1,167 @@
+<!-- index.html -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <title>Ratings Chart</title>
+    <style>
+        .chart-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr); /* Three charts in a row */
+            gap: 20px; /* Gap between charts */
+            border: 1px solid #ccc; /* Add border around the chart container */
+            padding: 20px; /* Add padding for better appearance */
+            overflow-x: auto; /* Allow horizontal scrolling for more charts */
+            max-width: 100%; /* Allow the container to take the full width */
+        }
+        .chart {
+            flex: 1;
+            max-width: 400px;
+            margin: 10px;
+            border: 1px solid #ddd; /* Add border around each chart */
+        }
+    </style>
+</head>
+<body>
+    <!-- Container for charts -->
+    <div id="charts-container" class="chart-container"></div>
+
+    <script>
+        // Socket connection
+        var socketProtocol = location.protocol === 'https:' ? 'https://' : 'http://';
+        var socket = io.connect(socketProtocol + document.domain + ':' + location.port, { namespace: '/' });
+        //var socket = io.connect('http://' + document.domain + ':' + location.port, { namespace: '/' });
+
+        // Dictionary to store Plotly charts for each thing
+        var charts = {};
+
+        // Socket event handler
+        socket.on('update_chart', function(data) {
+            console.log('Received update data:', data);
+
+            // Check if the chart for the thing already exists
+            if (charts[data.thing]) {
+                // Chart for the thing already exists, update it
+                updateChart(data.thing, data);
+            } else {
+                // Chart for the thing doesn't exist, create it
+                createNewChart(data.thing, data);
+            }
+        });
+
+        function createNewChart(thing, data) {
+            var chartDiv = document.createElement('div');
+            chartDiv.id = 'chart-' + thing;
+            chartDiv.className = 'chart';
+
+            var container = document.getElementById('charts-container');
+            container.insertBefore(chartDiv, container.firstChild);
+
+            var trace = {
+                x: [data.answer],
+                y: [1], // Initialize with count 1 for the new answer value
+                type: 'bar',
+                name: thing,
+                width: 0.8, // Set the width of the bars
+            };
+
+            var layout = {
+                title: 'Ratings Chart - ' + thing,
+                xaxis: {
+                    title: 'Answer Values',
+                    tickmode: 'linear',
+                    tick0: 0,
+                },
+                yaxis: {
+                    title: 'Count',
+                    tickmode: 'linear',
+                    tick0: 0,
+                },
+                bargap: 0.1,
+            };
+
+            Plotly.newPlot('chart-' + thing, [trace], layout)
+                .then(chart => {
+                    charts[thing] = chart;  // Store the chart in the dictionary
+                })
+                .catch(error => console.error('Error creating chart:', error));
+        }
+
+        function updateChart(thing, data) {
+            if (charts[thing]) {
+                var chart = charts[thing];
+                var index = chart.data[0].x.indexOf(data.answer);
+
+                if (index !== -1) {
+                    chart.data[0].y[index]++;
+                } else {
+                    chart.data[0].x.push(data.answer);
+                    chart.data[0].y.push(1);
+                }
+
+                Plotly.redraw(chart)
+                    .then(() => {
+                        console.log('Chart updated successfully.');
+                    })
+                    .catch(error => console.error('Error redrawing chart:', error));
+            } else {
+                console.error('Chart for group does not exist.');
+            }
+        }
+
+        function createChart(thing, data) {
+            var chartDiv = document.createElement('div');
+            chartDiv.id = 'chart-' + thing;
+            chartDiv.className = 'chart';
+            document.getElementById('charts-container').appendChild(chartDiv);
+
+            var trace = {
+                x: data.ans,
+                y: data.ans_count,
+                type: 'bar',
+                name: thing,
+                width: 0.8,
+            };
+
+            var layout = {
+                title: 'Ratings Chart - ' + thing,
+                xaxis: {
+                    title: 'Answer Values',
+                    tickmode: 'linear',
+                    tick0: 0,
+                },
+                yaxis: {
+                    title: 'Count',
+                    tickmode: 'linear',
+                    tick0: 0,
+                },
+                bargap: 0.1,
+            };
+
+            var chart = Plotly.newPlot('chart-' + thing, [trace], layout);
+            charts[thing] = chart;  // Store the chart in the dictionary
+        }
+
+        // Fetch initial data from Flask route using POST
+        fetch('/get_survey_results', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({}),
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log(JSON.stringify(data));
+            // Use the initial data to create charts
+            for (var thing in data.survey_results) {
+                createChart(thing, data.survey_results[thing]);
+            }
+        });
+    </script>
+</body>
+</html>

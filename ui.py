@@ -1,4 +1,4 @@
-from flask import render_template, request, Flask
+from flask import render_template, request, Flask, jsonify
 import requests
 import sqlite3
 import re
@@ -37,7 +37,7 @@ def post_index():
         first_name_ = request.form.get("first_name")
         last_name_ = request.form.get("last_name")
 
-        phone_num_regex = re.compile(r'^\+1\d{10}$')
+        phone_num_regex = re.compile(r'^\+(?:[0-9]){6,14}[0-9]$')
         good_from_num = phone_num_regex.search(from_num_)
         good_to_num = phone_num_regex.search(to_num_)
 
@@ -65,7 +65,7 @@ def post_index():
 
 
     elif request.form.get("start_dialer"):
-        os.system("/root/amd.py &")
+        os.system("./amd.py &")
 
         response = f"<center>Dialer Started!</center>"
 
@@ -173,3 +173,44 @@ Phone Number:&emsp;<input type="text" size="25" name="tnum"></text></center><br>
     
     return render_template('index.html', result=response)
 
+
+def initial_results():
+    db = sqlite3.connect("/root/database.db")
+    cursor = db.cursor()
+    res_rows = cursor.execute("select count(1) as answers_count, question,answer from survey_answers group by question,answer").fetchall();
+    results={} 
+    if len(res_rows) > 0:
+        for res_row in res_rows:
+            if res_row[1] not in results:
+                results[res_row[1]]={"ans":[],"ans_count":[]}
+        
+        for res_row in res_rows:
+            if res_row[1] in results:
+                results[res_row[1]]["ans"].append(res_row[2])
+                results[res_row[1]]["ans_count"].append(res_row[0])
+    print(results)
+    db.close()
+    return jsonify({'results': results})
+def results():
+    return render_template('results.html')
+
+def get_survey_results():
+    db = sqlite3.connect("/root/database.db")
+    cursor = db.cursor()
+    cursor.execute("SELECT COUNT(1) AS answers_count, question, answer FROM survey_answers GROUP BY question, answer")
+    res_rows = cursor.fetchall()
+
+    results = {}
+    if len(res_rows) > 0:
+        for res_row in res_rows:
+            question = res_row[1]
+            answer = res_row[2]
+            count = res_row[0]
+
+            if question not in results:
+                results[question] = {"ans": [], "ans_count": []}
+
+            results[question]["ans"].append(answer)
+            results[question]["ans_count"].append(count)
+
+    return jsonify({'survey_results': results})

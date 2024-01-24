@@ -3,7 +3,7 @@ from flask import Flask, request, render_template
 import sqlite3
 import os
 import logging
-
+from flask_socketio import SocketIO,emit
 ngrok_tunnel_url = os.environ['NGROK_TUNNEL_ADDRESS']
 
 def ai_prompt():
@@ -141,11 +141,11 @@ def lookup_caller():
     # Does this user already exist in the database
     # Don't create a new user if they do
     phone_number = request.json['argument']['parsed'][0]['phone_number']
-    phone_number = "+1" + phone_number
+    phone_number =  phone_number
 
     rows = cursor.execute(
-        "SELECT id, first_name, last_name from dialto where to_num = ? limit 1",
-        (phone_number,)
+        "SELECT id, first_name, last_name from dialto where to_num like ? limit 1",
+        ('%' + phone_number,)
     ).fetchall()
 
     if len(rows) > 0:
@@ -170,10 +170,11 @@ def lookup_caller():
     print (f"{swml}")
     return swml
 
-def question_and_answer():
+def question_and_answer(socketio):
     swml = {}
     global question_id
-
+    cur_user_id=user_id
+    cur_question_id=question_id
     db = sqlite3.connect("/root/database.db")
     cursor = db.cursor()
 
@@ -195,10 +196,14 @@ def question_and_answer():
             question = row[0]
             question_id = row[1]
             swml['response'] = f"Success.  The answer has been recorded.  the next question is {question}"
+                #socketio.emit('update_charts', {'update': [{'y':result_v["ans_count"] ,'x':result_v["ans"],'group':result_k}], 'traces': [0]}, namespace='/')
             print(f"{swml}")
     else:
         swml['response'] = f"Success.  The answer has been recorded.  There are no more questions in the survey.  Please hang up the call"
         print (f"{swml}")
+    res_row = cursor.execute("SELECT question, answer FROM survey_answers WHERE user_id=? and id=?", (cur_user_id, cur_question_id,)).fetchone()
+    if len(res_row) > 0:
+       socketio.emit('update_chart',{'thing':res_row[0],'answer':res_row[1]}, namespace='/')
 
     db.close()
     return swml
@@ -245,4 +250,6 @@ def add_questions_to_user(user_id):
     db.close()
     return
 
-
+def test_ws(socketio):
+    socketio.emit('update_chart',{'thing':'test chart 1','answer':10}, namespace='/')
+    return "ok"
