@@ -8,17 +8,20 @@ from flask import Flask, request, render_template
 import os
 import logging
 from flask_socketio import SocketIO,emit
-
-
 from pyngrok import ngrok
-public_url = ngrok.connect(5000)
+
+if not os.environ['NGROK_URL']:
+    public_url = ngrok.connect(5000)
+    os.environ['NGROK_URL'] = public_url
+else:
+    public_url = os.environ['NGROK_URL']
+
 print(" * ngrok tunnel \"{}\" -> \"http://127.0.0.1:5000\"".format(public_url))
-os.environ['NGROK_TUNNEL_ADDRESS'] = public_url.public_url
-ngrok_tunnel_url = os.environ['NGROK_TUNNEL_ADDRESS']
-print(ngrok_tunnel_url)
+ngrok_tunnel_url = os.environ['NGROK_URL']
+#print(ngrok_tunnel_url)
+
 # TODO:  I need to do something with this in the UI
 # Need to make a button to auto update the agent number
-#print (f"The NGROK TUNNEL URL is {ngrok_tunnel_url}")
 
 db = sqlite3.connect("/root/database.db")
 cursor = db.cursor()
@@ -94,9 +97,4 @@ def handle_disconnect():
 
 
 if __name__ == '__main__':
-    #app.run(host='0.0.0.0')
-    #from pyngrok import ngrok
-    #public_url = ngrok.connect(5000)
-    #print(" * ngrok tunnel \"{}\" -> \"http://127.0.0.1:5000\"".format(public_url))
-    #os.environ['NGROK_TUNNEL_ADDRESS'] = public_url
     socketio.run(app, host="0.0.0.0", port=5000,allow_unsafe_werkzeug=True)
