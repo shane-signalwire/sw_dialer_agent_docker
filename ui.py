@@ -29,7 +29,7 @@ def post_index():
 
     if request.form.get("dial"):
         #from_num_ = request.form.get("fnum")
-        from_num_ = os.environ['SW_CALLER_ID']
+        from_num_ = os.environ['PHONE_NUMBER']
         if from_num_ == "" or from_num_ is None:
             response = "Please configure the caller ID"
             return render_template('index.html', result=response)
@@ -44,11 +44,11 @@ def post_index():
         if good_from_num is None:
             response = "The from number is not valid"
             return render_template('index.html', result=response)
-    
+
         elif good_to_num is None:
             response = "The to number is not valid"
             return render_template('index.html', result=response)
-    
+
         else:
             db = sqlite3.connect("/root/database.db")
             cursor = db.cursor()
@@ -65,7 +65,7 @@ def post_index():
 
 
     elif request.form.get("start_dialer"):
-        os.system("/root/amd.py &")
+        os.system("./amd.py &")
 
         response = f"<center>Dialer Started!</center>"
 
@@ -82,24 +82,24 @@ def post_index():
 
         db.commit()
         db.close()
-      
+
         response = f"<center> {question_} has been added to the poll</center>"
 
     elif request.form.get("conf_dialer"):
 
         # SET THE ENVIRONMENT
-        os.environ['SW_CALLER_ID'] = request.form.get("fnum")
-        os.environ['PROJECT'] = request.form.get("swproject")
-        os.environ['TOKEN'] = request.form.get("swtoken")
-        os.environ['SPACE'] = request.form.get("swspace")
+        os.environ['PHONE_NUMBER'] = request.form.get("fnum")
+        os.environ['PROJECT_ID'] = request.form.get("swproject")
+        os.environ['REST_API_TOKEN'] = request.form.get("swtoken")
+        os.environ['SIGNALWIRE_SPACE'] = request.form.get("swspace")
 
         # TODO:  Move these into their own functions, instead of cluttering the UI code.
         # TODO:  Phone number will require +1, this should be validated before calls are made.
-        phone_number = os.environ['SW_CALLER_ID'].replace('+', '%2b') # Take the phone number and URL encode.
+        phone_number = os.environ['PHONE_NUMBER'].replace('+', '%2b') # Take the phone number and URL encode.
 
-        signalwire_space = os.environ['SPACE']
-        project_id = os.environ['PROJECT']
-        rest_api_token = os.environ['TOKEN']
+        signalwire_space = os.environ['SIGNALWIRE_SPACE']
+        project_id = os.environ['PROJECT_ID']
+        rest_api_token = os.environ['REST_API_TOKEN']
 
         # Generate the basic auth hash.
         auth = str(project_id + ":" + rest_api_token)
@@ -122,7 +122,7 @@ def post_index():
         sid = (output["data"][0]["id"])
 
         # Update the number to the NGROK
-        ngrok_tunnel_url = os.environ['NGROK_TUNNEL_ADDRESS']
+        ngrok_tunnel_url = os.environ['NGROK_URL']
         fqdn = f"https://{signalwire_space}.signalwire.com/api/relay/rest/phone_numbers/{sid}"
         call_relay_script_url = f"{ngrok_tunnel_url}/ai"
         headers = {
