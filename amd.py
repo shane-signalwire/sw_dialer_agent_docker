@@ -8,8 +8,8 @@ from signalwire.relay.consumer import Consumer
 
 class CustomConsumer(Consumer):
   def setup(self):
-    self.project = os.environ.get('PROJECT_ID', None)
-    self.token = os.environ.get('REST_API_TOKEN', None)
+    self.project = os.environ.get('PROJECT', None)
+    self.token = os.environ.get('TOKEN', None)
     self.contexts = ['dialer']
 
   async def ready(self):
@@ -63,7 +63,7 @@ class CustomConsumer(Consumer):
                 logging.info(f'{to_num}: {amd.result}')
                 logging.info(f'{to_num}: Playing Message to user')
                 await dial_result.call.play_tts(text='Hello, Please stay on the line to complete this important political poll')
-                agent_dest = self.project = os.environ.get('PHONE_NUMBER', None)
+                agent_dest = self.project = os.environ.get('SW_CALLER_ID', None)
                 devices = [
                   { 'to_number': agent_dest, 'timeout': 15 }
                 ]

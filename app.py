@@ -1,178 +1,102 @@
 #!/usr/bin/env python3
 # Author: Shane Harrell
 
-from datetime import date,timedelta
-import sys,os
-import logging
+from signalwire.voice_response import *
 import sqlite3
-import time
-from signalwire.rest import Client as signalwire_client
-
-from flask import Flask
-from flask import request
-from flask import render_template
-
-
-#from signalwire.voice_response import *
-#from twilio.twiml.messaging_response import Message, MessagingResponse
+from flask import Flask, request, render_template
+#import ngrok
+import os
+import logging
+from flask_socketio import SocketIO,emit
 
 
-# TODO:
-# Insert into DB
-# Edit an entry
-# Remove an Entry
+from pyngrok import ngrok
+public_url = ngrok.connect(5000)
+print(" * ngrok tunnel \"{}\" -> \"http://127.0.0.1:5000\"".format(public_url))
+os.environ['NGROK_TUNNEL_ADDRESS'] = public_url.public_url
+ngrok_tunnel_url = os.environ['NGROK_TUNNEL_ADDRESS']
+print(ngrok_tunnel_url)
+# TODO:  I need to do something with this in the UI
+# Need to make a button to auto update the agent number
+#print (f"The NGROK TUNNEL URL is {ngrok_tunnel_url}")
 
-
-calendar = Flask(__name__)
-
-@calendar.route('/')
-def my_form():
-    return render_template('my-form.html')
-
-
-@calendar.route('/', methods=['POST'])
-def my_form_post():
-    response=""
-
-    # Connect to DB
-    db = sqlite3.connect("calendar.db")
-    cursor = db.cursor()
-
-    date_ = request.form.get("date")
-    time_ = request.form.get("time")
-    desc =  request.form.get("desc")
-
-    cursor.execute(
-        "INSERT INTO cal (date, time, text) VALUES (?, ?, ?)",
-        (date_, time_, desc,)
-    )
-
-    db.commit()
-    db.close()
-    response = (f"{response} A new entry has been added for {date_} at {time_}")
-    return response
-    #sys.exit()
-
-
-today = date.today()
-tomorrow = today + timedelta(1)
-
-# Connect to DB
-db = sqlite3.connect("calendar.db")
+db = sqlite3.connect("/root/database.db")
 cursor = db.cursor()
 
-def send_text(text):
-    '''Sends an SMS Text Message via SignalWire API'''
-    signalwire_space = "shane-harrell.signalwire.com"
-    project_id = "0fd6cfc3-ac8c-4b6f-9bc3-57048cf6a7f3"
-    api_token = "PTa7de9a82bb8711f22472d05174633af2db1317e2e23298aa"
-    from_num = "+12136576969"
-    #to_num_list = [ "+14403346366", "+14402275604" ]
-    text_body = text
-    
-    for to_num in to_num_list:
-        client = signalwire_client(project_id, api_token, signalwire_space_url = signalwire_space)
-        message = client.messages.create (
-          to = to_num,
-          from_= from_num,
-          body=text_body
-     )
+# Create the survey tables if they don't exist
+survey_questions_table = """ CREATE TABLE if not exists survey_questions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    question TEXT NOT NULL
+    );"""
+
+survey_answers_table = """ CREATE TABLE if not exists survey_answers(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    question_id INTEGER NOT NULL,
+    question TEXT NOT NULL,
+    answer TEXT
+    );"""
+
+survey_user_table = """ CREATE TABLE if not exists user (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    first_name TEXT NOT NULL,
+    last_name TEXT NOT NULL,
+    age INTEGER NOT NULL,
+    phone_number TEXT NOT NULL
+    );"""
+
+# Create the dialto table if it doesn't exist
+dialto_table = """ CREATE TABLE if not exists dialto (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    to_num TEXT NOT NULL,
+    from_num TEXT NOT NULL,
+    first_name TEXT NOT NULL,
+    last_name TEXT NOT NULL,
+    amd_result TEXT
+    );"""
+
+cursor.execute(survey_questions_table)
+cursor.execute(survey_answers_table)
+cursor.execute(survey_user_table)
+cursor.execute(dialto_table)
+db.commit()
 
 
-def exact_date(date_):
-    rows = cursor.execute(
-        "SELECT id, date, time, text from cal where date = ? order by time asc",
-    (date_,)
-    ).fetchall()
+# Importing Sub-Route
+# Attempting to keep the code more neat and modular
+import ui
+import ai
 
-    output = ""
-    for row in rows:
-        date_ = row[1]
-        time_ = row[2]
-        text = row[3]
+app = Flask(__name__)
+socketio = SocketIO(app)
+# User Interface Route(s)
+app.add_url_rule('/', view_func=ui.index, methods=['GET'])
+app.add_url_rule('/', view_func=ui.post_index, methods=['POST'])
+app.add_url_rule('/logs', view_func=ui.logs, methods=['POST'])
+app.add_url_rule('/results', view_func=ui.results, methods=['GET'])
+app.add_url_rule('/initial_results', view_func=ui.initial_results, methods=['GET','POST'])
+app.add_url_rule('/get_survey_results', view_func=ui.get_survey_results, methods=['GET','POST'])
+# AI Agent
+app.add_url_rule('/ai', view_func=ai.ai_prompt, methods=['POST'])
+app.add_url_rule('/lookup_caller', view_func=ai.lookup_caller, methods=['POST'])
+app.add_url_rule('/question_and_answer', view_func=ai.question_and_answer, methods=['POST'],defaults={'socketio': socketio})
+app.add_url_rule('/test_ws', view_func=ai.test_ws, methods=['GET'],defaults={'socketio': socketio})
 
-        output = output + "\n  " + time_ + ": " + text
-    output =  (f"=============================\n{date_}{output}\n")
-    return (output)
+@socketio.on('connect')
+def handle_connect():
+    print('Client connected')
 
-def tags(tag):
-    rows = cursor.execute(
-      "SELECT id, date, time, text from cal where tags = ? order by date asc",
-      (tag,)
-    ).fetchall()
-   
-    output = ""
-    for row in rows:
-        date_ = row[1]
-        time_ = row[2]
-        text = row[3]
+@socketio.on('disconnect')
+def handle_disconnect():
+    print('Client disconnected')
 
-        output = output + "\n  " + date_ + "\n\t" + time_ + ": " + text
-    #print ("=============================")
-    final_output =  (f"{tag}: {output}\n")
-    return (final_output)
-
-if len(sys.argv) > 1:
-    opt = sys.argv[1]
-
-    if (opt == "--date"):
-      date_ = sys.argv[2]
-      r = exact_date(date_)
-      final_output =  (f"{r}")
-      print (final_output)
-      #send_text(final_output)
-      sys.exit()
-
-    elif (opt == "--tag"):
-      final_output = "=============================\n"
-      t = sys.argv[2]
-      tl = t.split(',')
-      for tag in tl: 
-        output = tags(tag) + "\n"
-        #print ("=============================")
-        final_output = (f"{final_output}{output}")
-      print (final_output)
-      sys.exit()
-
-
-
-######################
-# Get rows for today #
-######################
-rows = cursor.execute(
-    "SELECT id, date, time, text from cal where date = ? order by time asc",
-    (today,)
-).fetchall()
-
-output = ""
-for row in rows:
-    date_ = row[1]
-    time_ = row[2]
-    text = row[3]
-
-    output = output + "\n  " + time_ + ": " + text
-final_output = (f"=============================\nToday -- {date_}{output}\n")
-
-#########################
-# Get rows for tomorrow #
-#########################
-rows = cursor.execute(
-    "SELECT id, date, time, text from cal where date = ? order by time asc",
-    (tomorrow,)
-).fetchall()
-
-output = ""
-for row in rows:
-    date_ = row[1]
-    time_ = row[2]
-    text = row[3]
-
-    output = output + "\n  " + time_ + ": " + text
-final_output =  (f"{final_output}\nTomorrow -- {date_}{output}\n=============================")
-print (final_output)
-#send_text (final_output)
 
 
 
 if __name__ == '__main__':
-    calendar.run()
+    #app.run(host='0.0.0.0')
+    #from pyngrok import ngrok
+    #public_url = ngrok.connect(5000)
+    #print(" * ngrok tunnel \"{}\" -> \"http://127.0.0.1:5000\"".format(public_url))
+    #os.environ['NGROK_TUNNEL_ADDRESS'] = public_url
+    socketio.run(app, host="0.0.0.0", port=5000,allow_unsafe_werkzeug=True)

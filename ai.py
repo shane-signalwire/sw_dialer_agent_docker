@@ -4,8 +4,7 @@ import sqlite3
 import os
 import logging
 from flask_socketio import SocketIO,emit
-
-ngrok_tunnel_url = os.environ['NGROK_URL']
+ngrok_tunnel_url = os.environ['NGROK_TUNNEL_ADDRESS']
 
 def ai_prompt():
     ## AI SURVEY AGENT ##
