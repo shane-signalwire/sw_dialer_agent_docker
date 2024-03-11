@@ -140,15 +140,20 @@ def post_index():
         response = "<center>Configuration Saved</center>"
 
     elif request.form.get("configure_dialer"):
-        response= '''
+        signalwire_space = os.environ['SIGNALWIRE_SPACE'] if os.environ['SIGNALWIRE_SPACE'] else  ""
+        project_id = os.environ['PROJECT_ID'] if os.environ['PROJECT_ID'] else ""
+        rest_api_token = os.environ['REST_API_TOKEN'] if os.environ['REST_API_TOKEN'] else ""
+        phone_number = os.environ['PHONE_NUMBER'] if os.environ['PHONE_NUMBER'] else ""
+
+        response = f"""
 <form action="/" method="POST">
 <center>
-Signalwire Space:    <input type="text" id="sw_space" name="swspace" size="25"><br>
-SignalWire Project ID:  <input type="text" id="sw_project" name="swproject" size="25"><br>
-SignalWire API Token:   <input type="text" id="sw_token" name="swtoken" size="25"><br>
-Caller ID Number:    <input type="text" id="from_number" name="fnum" size="25"></center><br><br>
+Signalwire Space:    <input type="text" id="sw_space" name="swspace" value="{signalwire_space}" size="50"><br>
+SignalWire Project ID:  <input type="text" id="sw_project" name="swproject" value="{project_id}" size="50"><br>
+SignalWire API Token:   <input type="text" id="sw_token" name="swtoken" value="{rest_api_token}" size="50"><br>
+Caller ID Number:    <input type="text" id="from_number" name="fnum" value="{phone_number}" size="50"></center><br><br>
 <input type="submit" name="conf_dialer" value="Submit">
-</form>'''
+</form>"""
 
     elif request.form.get("poll_participant"):
         response = '''
