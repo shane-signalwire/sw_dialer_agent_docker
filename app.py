@@ -10,8 +10,17 @@ import logging
 from flask_socketio import SocketIO,emit
 from pyngrok import ngrok
 
-if not os.environ['NGROK_URL']:
-    public_url = ngrok.connect(5000)
+# Create env keys that are needed #
+os.environ['NGROK_TUNNEL'] = ""
+os.environ['PHONE_NUMBER'] = ""
+os.environ['PROJECT_ID'] = ""
+os.environ['REST_API_TOKEN'] = ""
+os.environ['SIGNALWIRE_SPACE'] = ""
+##
+
+if os.environ.get('NGROK_URL') is None:
+    ngrok_tunnel = ngrok.connect(5000)
+    public_url = ngrok_tunnel.public_url
     os.environ['NGROK_URL'] = public_url
 else:
     public_url = os.environ['NGROK_URL']
