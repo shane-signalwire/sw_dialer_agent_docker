@@ -65,7 +65,7 @@ def post_index():
 
 
     elif request.form.get("start_dialer"):
-        os.system("./amd.py &")
+        os.system("/root/amd.py &")
 
         response = f"<center>Dialer Started!</center>"
 
